@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-const [logChannelId,ticketcatagory,supportrole] = [process.env.LOG_CHANNEL,process.env.TICKET_CAT,process.env.SUPPORT_ROLE]
+const [logChannelId,ticketcatagory,supportrole,guildId] = [process.env.LOG_CHANNEL,process.env.TICKET_CAT,process.env.SUPPORT_ROLE,process.env.GUILD_ID]
 
 
 import {
@@ -28,7 +28,6 @@ import {
     ChannelType,
 } from "discord.js";
 
-const guildId = "1353539150514618402";
 
 const client = new Client({
     intents: [
