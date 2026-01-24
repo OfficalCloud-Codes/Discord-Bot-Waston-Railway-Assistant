@@ -46,6 +46,8 @@ client.on("clientReady", async () => {
 
 
 
+
+
 async function setupSlashCommands(client, guildId) {
     const commands = [
         {
@@ -98,6 +100,18 @@ async function setupSlashCommands(client, guildId) {
                     type: ApplicationCommandOptionType.String,
                     required: true,
                 }
+            ]
+        },
+             {
+            name: "postrules",
+            description: "[MOD ONLY] Posts rules",
+            options: [
+                {
+                    name: "channel",
+                    description: "Channel to send this to",
+                    type: ApplicationCommandOptionType.Channel,
+                    required: true,
+                },
             ]
         },
         {
