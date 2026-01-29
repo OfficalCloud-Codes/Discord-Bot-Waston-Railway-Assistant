@@ -1,7 +1,12 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-const [logChannelId,ticketcatagory,supportrole,guildId] = [process.env.LOG_CHANNEL,process.env.TICKET_CAT,process.env.SUPPORT_ROLE,process.env.GUILD_ID]
+const [logChannelId,ticketcatagory,supportrole,guildId,commandLogChannelID] = [process.env.LOG_CHANNEL,process.env.TICKET_CAT,process.env.SUPPORT_ROLE,process.env.GUILD_ID,process.env.COMMAND_LOG_CHANNEL]
+
+
+import { addInfraction, getInfractions } from "./infractions.js";
+
+
 
 
 import {
@@ -45,9 +50,6 @@ client.on("clientReady", async () => {
 });
 
 
-
-
-
 async function setupSlashCommands(client, guildId) {
     const commands = [
         {
@@ -77,6 +79,46 @@ async function setupSlashCommands(client, guildId) {
         {
             name: "newticket",
             description: "[SUPPORT ONLY] Creates a new ticket",
+        },
+        {
+            name: "infractiongive",
+            description: "[MOD ONLY] Gives an infraction to a user",
+            options: [
+                {
+                    name: "user",
+                    description: "User to give infraction to",
+                    type: ApplicationCommandOptionType.User,
+                    required: true,
+                },
+                {
+                    name: "reason",
+                    description: "Reason for infraction",
+                    type: ApplicationCommandOptionType.String,
+                    required: true,
+                },
+                 {
+                    name: "actiontaken",
+                    description: "Action taken",
+                    type: ApplicationCommandOptionType.String,
+                    required: true,
+                },
+            ]
+        },
+        {
+            name: "infractions",
+            description: "[MOD ONLY] Tells infractions",
+            options: [
+                {
+                    name: "user",
+                    description: "User to give get infractions from",
+                    type: ApplicationCommandOptionType.User,
+                    required: true,
+                },
+            ]
+        },
+        {
+            name: "myinfractions",
+            description: "Your infractions",
         },
         {
             name: "senddm",
@@ -152,24 +194,69 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function getInfractionFancyText(infractions) {
+    let title = `Active \n`
+    const text = infractions
+    
+    
+    
+    .map((inf, i) => {
+        const infractionDate = new Date(inf.timestamp);
+        const now = new Date();
+
+        // 30 days in milliseconds
+        const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+        let dateLine;
+        if (now - infractionDate > THIRTY_DAYS) {
+        
+        
+        
+        // Already expired
+        const expiredOn = new Date(infractionDate.getTime() + THIRTY_DAYS);
+        dateLine = `Expired on: ${expiredOn.toLocaleString()}`;
+        title = `Expired \n`;
+        } else {
+        // Not yet expired
+        const expiresOn = new Date(infractionDate.getTime() + THIRTY_DAYS);
+        dateLine = `Expires on: ${expiresOn.toLocaleString()}`;
+        }
+
+        
+
+        return (
+        `## ${i+1} - ` + title +
+        `Reason: ${inf.reason}\n` +
+        `Action: ${inf.action}\n` +
+        `Date: ${infractionDate.toLocaleString()}\n` +
+        `${dateLine}`
+        );
+    })
+    .join("\n\n"); 
+  return text
+}
 
 
 client.on("interactionCreate", async (interaction) => {
     if (interaction.isChatInputCommand()) {
 
-        console.log(`Command Ran: ${interaction.commandName}`)
-
-        if (interaction.commandName === "killbot") {
+        sendToChannelContainer(client,commandLogChannelID,"Command Ran",`User ${interaction.user.username} has ran command: ${interaction.commandName}`,"Waston Railway Assistant")
+        if (interaction.commandName === "infractiongive") {
             const member = interaction.member;
-            const permission = PermissionsBitField.Flags.Administrator
-
+            const permission = PermissionsBitField.Flags.ManageMessages
+            const userr = interaction.options.getUser("user");
+            const reason = interaction.options.getString("reason");
+            const actiontaken = interaction.options.getString("actiontaken");
             if (!member.permissions.has(permission)) {
-                return replyContainer(client,interaction,"❌ Invalid Permissions",`You must be administrator or higher`,"Waston Railway Assistant")
+                return replyContainer(client,interaction,"❌ Invalid Permissions",`You must be moderator or higher`,"Waston Railway Assistant")
             };
-            sendToChannelContainer(client,logChannelId,"🔴 Bot Offline",`Bot is now offline. Bot was killed by ${interaction.user.displayName}.`,"Waston Railway Assistant")
-            replyContainer(client,interaction,"🔪 Killing Bot",`Turning off the bot...`,"Bye")
+            addInfraction(userr.id,"Infraction",reason,actiontaken)
+            
+            const userinfs = getInfractions(userr.id)
 
-            process.kill(0)
+            return replyContainer(client,interaction,"✅ Warned User",`Successfully warned user. \n **Reason:** ${reason} \n **Action Taken:** ${actiontaken} \n You can view all infractions using /myinfractions`,"Waston Railway Assistant",false)
+            
+
         };
         if (interaction.commandName === "senddm") {
             const userr = interaction.options.getUser("user");
@@ -189,6 +276,25 @@ client.on("interactionCreate", async (interaction) => {
             return DMcomponent(client,userr.id,title,cont);
             
         }
+        if (interaction.commandName === "myinfractions") {
+            const infractions = getInfractions(interaction.user.id);
+            replyContainer(client,interaction,`Infractions for ${interaction.user.username}`,getInfractionFancyText(infractions),"Waston Railway Assistant",true)
+        
+        
+            
+        }
+         if (interaction.commandName === "infractions") {
+            const member = interaction.member;
+            const permission = PermissionsBitField.Flags.ManageMessages
+            const userr = interaction.options.getUser("user");
+            if (!member.permissions.has(permission)) {
+                return replyContainer(client,interaction,"❌ Invalid Permissions",`You must be moderator or higher`,"Waston Railway Assistant")
+            };
+            const infractions = getInfractions(userr.id);
+            replyEphemeral(interaction,"Getting info...")
+            return sendToChannelContainer(client,interaction.channelId,`Infractions for ${userr.username}`,getInfractionFancyText(infractions),"Waston Railway Assitant",false)
+
+        };
         if (interaction.commandName === "sendtochannel") {
             const chanell = interaction.options.getChannel("channel");
             const title = interaction.options.getString("title");
